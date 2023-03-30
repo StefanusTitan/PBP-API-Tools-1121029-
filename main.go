@@ -49,7 +49,7 @@ func SendMail(from string, to string, subject string, content string) {
 	email.SetHeader("Subject", subject)
 	email.SetBody("text/plain", content)
 
-	sender := gomail.NewDialer("smtp.gmail.com", 465, "if-21029@students.ithb.ac.id", "#MieEoaNQo7K5jz$z2Uf&Xk88^DV%wFLc2v&$baMMNsZfzMfqJ5WGbUQT4pGhmuTPZrUk2GzdLAf*ay^dAhg@yo6KqKn#*2C")
+	sender := gomail.NewDialer("smtp.gmail.com", 587, "if-21029@students.ithb.ac.id", "#MieEoaNQo7K5jz$z2Uf&Xk88^DV%wFLc2v&$baMMNsZfzMfqJ5WGbUQT4pGhmuTPZrUk2GzdLAf*ay^dAhg@yo6KqKn#*2C")
 
 	if err := sender.DialAndSend(email); err != nil {
 		panic(err)
