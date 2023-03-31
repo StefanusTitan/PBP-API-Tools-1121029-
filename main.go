@@ -69,25 +69,35 @@ func GetUserData(user_id int) {
 	}
 }
 
-func insertUser() echo.HandlerFunc {
+func insertUser(c echo.Context) error {
 	db := gormConn()
-	return func(c echo.Context) error {
-		user := new(Users)
-		if err := c.Bind(user); err != nil {
-			return err
-		}
 
-		query := "INSERT INTO users (username, email, password) VALUES (?, ?, ?)"
-		err := db.Exec(query, user.Username, user.Email, user.Password)
-		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{
-				"message": "Gagal memasukkan data pengguna",
-			})
-		}
+	user := new(Users)
+	user.Username = c.FormValue("username")
+	user.Email = c.FormValue("email")
+	user.Password = c.FormValue("password")
 
-		SendMail("if-21047@students.ithb.ac.id", user.Email, "Account Successfully Created!", "Welcome "+user.Username+" To The Spotify Platform, Please Enjoy The Songs :)")
-		return c.JSON(http.StatusOK, user)
+	query := db.Select("username", "email", "password").Create(&user)
+	if query.Error != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"message": "Gagal memasukkan data pengguna",
+		})
 	}
+	subscription := new(Subscriptions)
+	subscription.Jenis_Payment = "OvO"
+	subscription.Layanan_ID = 1
+	subscription.User_ID = user.User_ID
+	subscription.Active = false
+	query2 := db.Select("user_id", "layanan_id", "jenis_payment", "active").Create(&subscription)
+	if query2.Error != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"message": "Gagal memasukkan data subscription",
+		})
+	}
+	go SendMail("if-21047@students.ithb.ac.id", user.Email, "Account Successfully Created!", "Welcome "+user.Username+" To The Spotify Platform, Please Enjoy The Songs :)")
+	GetUserData(user.User_ID)
+	return c.JSON(http.StatusOK, user)
+
 }
 
 func Subscribe(c echo.Context) error {
@@ -156,5 +166,7 @@ func main() {
 	gocron.Start()
 	gocron.Every(20).Seconds().Do(task)
 	router.PUT("/subscribe", Subscribe)
+	router.POST("/users", insertUser)
+	router.PUT("/unsubscribe", Unsubscribe)
 	router.Logger.Fatal(router.Start(":1323"))
 }
