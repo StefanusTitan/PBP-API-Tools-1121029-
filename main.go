@@ -111,6 +111,27 @@ func Subscribe(c echo.Context) error {
 	return c.JSON(response.Status, response)
 }
 
+func Unsubscribe(c echo.Context) error {
+	db := gormConn()
+	id, _ := strconv.Atoi(c.QueryParam("layanan_id"))
+
+	user_id := GetRedis(ring, "userId")
+	email := GetRedis(ring, "userEmail")
+	var response Response
+	if err := ring.Get(ctx, "userData"); err != nil {
+		result := db.Table("subscriptions").Where("user_id=? AND layanan_id=?", user_id, id).Update("active", false)
+		if result.Error == nil {
+			response.Status = http.StatusOK
+			response.Message = "Successful Termination"
+			SendMail("if-21029@students.ithb.ac.id", email, "Subscription Terminated", "I'm sorry to see you go, Please contact us if you'd like to communicate any issues.")
+		} else {
+			response.Status = http.StatusInternalServerError
+			response.Message = "Fail Unsubscribe"
+		}
+	}
+	return c.JSON(response.Status, response)
+}
+
 func CheckActive() bool {
 	db := gormConn()
 	user_id := GetRedis(ring, "userId")
