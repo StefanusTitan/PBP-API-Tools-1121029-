@@ -69,6 +69,37 @@ func GetUserData(user_id int) {
 	}
 }
 
+func insertUser(c echo.Context) error {
+	db := gormConn()
+
+	user := new(Users)
+	user.Username = c.FormValue("username")
+	user.Email = c.FormValue("email")
+	user.Password = c.FormValue("password")
+
+	query := db.Select("username", "email", "password").Create(&user)
+	if query.Error != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"message": "Gagal memasukkan data pengguna",
+		})
+	}
+	subscription := new(Subscriptions)
+	subscription.Jenis_Payment = "OvO"
+	subscription.Layanan_ID = 1
+	subscription.User_ID = user.User_ID
+	subscription.Active = false
+	query2 := db.Select("user_id", "layanan_id", "jenis_payment", "active").Create(&subscription)
+	if query2.Error != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]string{
+			"message": "Gagal memasukkan data subscription",
+		})
+	}
+	go SendMail("if-21047@students.ithb.ac.id", user.Email, "Account Successfully Created!", "Welcome "+user.Username+" To The Spotify Platform, Please Enjoy The Songs :)")
+	GetUserData(user.User_ID)
+	return c.JSON(http.StatusOK, user)
+
+}
+
 func Subscribe(c echo.Context) error {
 	db := gormConn()
 	id, _ := strconv.Atoi(c.QueryParam("layanan_id"))
@@ -85,6 +116,27 @@ func Subscribe(c echo.Context) error {
 		} else {
 			response.Status = http.StatusInternalServerError
 			response.Message = "Fail Subscribe"
+		}
+	}
+	return c.JSON(response.Status, response)
+}
+
+func Unsubscribe(c echo.Context) error {
+	db := gormConn()
+	id, _ := strconv.Atoi(c.QueryParam("layanan_id"))
+
+	user_id := GetRedis(ring, "userId")
+	email := GetRedis(ring, "userEmail")
+	var response Response
+	if err := ring.Get(ctx, "userData"); err != nil {
+		result := db.Table("subscriptions").Where("user_id=? AND layanan_id=?", user_id, id).Update("active", false)
+		if result.Error == nil {
+			response.Status = http.StatusOK
+			response.Message = "Successful Termination"
+			SendMail("if-21029@students.ithb.ac.id", email, "Subscription Terminated", "I'm sorry to see you go, Please contact us if you'd like to communicate any issues.")
+		} else {
+			response.Status = http.StatusInternalServerError
+			response.Message = "Fail Unsubscribe"
 		}
 	}
 	return c.JSON(response.Status, response)
@@ -114,5 +166,7 @@ func main() {
 	gocron.Start()
 	gocron.Every(20).Seconds().Do(task)
 	router.PUT("/subscribe", Subscribe)
+	router.POST("/users", insertUser)
+	router.PUT("/unsubscribe", Unsubscribe)
 	router.Logger.Fatal(router.Start(":1323"))
 }
