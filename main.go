@@ -69,6 +69,27 @@ func GetUserData(user_id int) {
 	}
 }
 
+func insertUser() echo.HandlerFunc {
+	db := gormConn()
+	return func(c echo.Context) error {
+		user := new(Users)
+		if err := c.Bind(user); err != nil {
+			return err
+		}
+
+		query := "INSERT INTO users (username, email, password) VALUES (?, ?, ?)"
+		err := db.Exec(query, user.Username, user.Email, user.Password)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"message": "Gagal memasukkan data pengguna",
+			})
+		}
+
+		SendMail("if-21047@students.ithb.ac.id", user.Email, "Account Successfully Created!", "Welcome "+user.Username+" To The Spotify Platform, Please Enjoy The Songs :)")
+		return c.JSON(http.StatusOK, user)
+	}
+}
+
 func Subscribe(c echo.Context) error {
 	db := gormConn()
 	id, _ := strconv.Atoi(c.QueryParam("layanan_id"))
